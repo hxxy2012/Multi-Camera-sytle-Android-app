@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">专业相机风格</string>
+    <string name="app_subtitle">Leica · Hasselblad · Zeiss · Ricoh GR</string>
+
+    <!-- 图片选择 -->
+    <string name="select_photo">选择照片</string>
+    <string name="pick_from_gallery">从相册选择</string>
+    <string name="take_photo">拍摄照片</string>
+    <string name="no_image_selected">请选择或拍摄照片</string>
+
+    <!-- 风格 -->
+    <string name="select_style">选择风格</string>
+
+    <!-- 操作 -->
+    <string name="compare">对比</string>
+    <string name="show_compare">显示对比</string>
+    <string name="hide_compare">隐藏对比</string>
+    <string name="save">保存图片</string>
+    <string name="share">分享</string>
+
+    <!-- 状态消息 -->
+    <string name="processing">处理中…</string>
+    <string name="applying_style">正在应用风格…</string>
+    <string name="saving_image">正在保存图片…</string>
+    <string name="save_success">图片已保存</string>
+    <string name="save_failed">保存失败</string>
+
+    <!-- 错误消息 -->
+    <string name="error_no_image">没有可保存的图片</string>
+    <string name="error_no_style">未选择风格</string>
+    <string name="error_image_too_large">图片文件过大（超过50MB），请选择较小的图片</string>
+    <string name="error_permission_denied">权限被拒绝，无法访问相册</string>
+
+    <!-- 图片信息 -->
+    <string name="original">原图</string>
+    <string name="processed">效果图</string>
+    <string name="resolution">分辨率: %1$d × %2$d</string>
+</resources>
