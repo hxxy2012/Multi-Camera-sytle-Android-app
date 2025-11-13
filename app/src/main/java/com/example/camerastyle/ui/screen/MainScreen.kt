@@ -64,9 +64,21 @@ fun MainScreen(
     ) { uri ->
         uri?.let {
             scope.launch {
-                val bitmap = loadBitmapFromUri(context.contentResolver.openInputStream(it))
-                bitmap?.let { bmp ->
-                    viewModel.setOriginalImage(bmp)
+                try {
+                    val bitmap = loadBitmapFromUri(context.contentResolver.openInputStream(it))
+                    if (bitmap != null) {
+                        viewModel.setOriginalImage(bitmap)
+                    } else {
+                        snackbarHostState.showSnackbar(
+                            message = "加载图片失败，请选择其他图片",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar(
+                        message = "加载图片出错: ${e.message}",
+                        duration = SnackbarDuration.Short
+                    )
                 }
             }
         }
@@ -303,6 +315,8 @@ fun ActionButtons(
 
 /**
  * 从URI加载Bitmap
+ * @param inputStream 输入流
+ * @return 解码后的Bitmap，失败返回null
  */
 private suspend fun loadBitmapFromUri(inputStream: InputStream?): Bitmap? {
     return withContext(Dispatchers.IO) {
@@ -310,7 +324,11 @@ private suspend fun loadBitmapFromUri(inputStream: InputStream?): Bitmap? {
             inputStream?.use { stream ->
                 BitmapFactory.decodeStream(stream)
             }
+        } catch (e: OutOfMemoryError) {
+            timber.log.Timber.e(e, "OOM while loading bitmap")
+            null
         } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error loading bitmap")
             null
         }
     }

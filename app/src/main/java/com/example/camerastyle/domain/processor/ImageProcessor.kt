@@ -31,22 +31,33 @@ class ImageProcessor @Inject constructor() {
         val height = bitmap.height
         val resultBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
-        // 获取所有像素
-        val pixels = IntArray(width * height)
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        try {
+            // 获取所有像素
+            val pixels = IntArray(width * height)
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
 
-        // 处理每个像素
-        for (i in pixels.indices) {
-            pixels[i] = processPixel(pixels[i], params, i)
+            // 处理每个像素（带取消检查）
+            val chunkSize = 1000 // 每处理1000个像素检查一次取消
+            for (i in pixels.indices) {
+                // 定期检查协程是否被取消
+                if (i % chunkSize == 0) {
+                    kotlinx.coroutines.ensureActive()
+                }
+                pixels[i] = processPixel(pixels[i], params, i)
+            }
+
+            // 设置处理后的像素
+            resultBitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+
+            val endTime = System.currentTimeMillis()
+            Timber.d("Image processing completed in ${endTime - startTime}ms for ${width}x${height} image")
+
+            resultBitmap
+        } catch (e: Exception) {
+            // 如果发生错误，释放已创建的bitmap
+            resultBitmap.recycle()
+            throw e
         }
-
-        // 设置处理后的像素
-        resultBitmap.setPixels(pixels, 0, width, 0, 0, width, height)
-
-        val endTime = System.currentTimeMillis()
-        Timber.d("Image processing completed in ${endTime - startTime}ms")
-
-        resultBitmap
     }
 
     /**
@@ -211,6 +222,9 @@ class ImageProcessor @Inject constructor() {
 
     /**
      * 缩小图片以避免OOM
+     * @param bitmap 原始图片
+     * @param maxDimension 最大尺寸
+     * @return 缩放后的图片（如果不需要缩放则返回原图）
      */
     fun resizeBitmapIfNeeded(bitmap: Bitmap, maxDimension: Int = 4096): Bitmap {
         val width = bitmap.width
@@ -230,6 +244,12 @@ class ImageProcessor @Inject constructor() {
         val newHeight = (height * scale).toInt()
 
         Timber.d("Resizing bitmap from ${width}x${height} to ${newWidth}x${newHeight}")
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+
+        return try {
+            Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        } catch (e: OutOfMemoryError) {
+            Timber.e(e, "OOM while resizing bitmap, returning original")
+            bitmap
+        }
     }
 }
