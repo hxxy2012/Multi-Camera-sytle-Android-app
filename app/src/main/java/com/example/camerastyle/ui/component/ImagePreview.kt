@@ -27,9 +27,10 @@ fun ImagePreview(
     modifier: Modifier = Modifier,
     showInfo: Boolean = true
 ) {
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
+    // 当bitmap改变时重置缩放状态
+    var scale by remember(bitmap) { mutableFloatStateOf(1f) }
+    var offsetX by remember(bitmap) { mutableFloatStateOf(0f) }
+    var offsetY by remember(bitmap) { mutableFloatStateOf(0f) }
 
     Box(
         modifier = modifier

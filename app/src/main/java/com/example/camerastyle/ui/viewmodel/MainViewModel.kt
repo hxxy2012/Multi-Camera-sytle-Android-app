@@ -66,6 +66,10 @@ class MainViewModel @Inject constructor(
      * 设置原图
      */
     fun setOriginalImage(bitmap: Bitmap) {
+        // 释放旧的bitmap
+        val oldOriginal = _uiState.value.originalBitmap
+        val oldProcessed = _uiState.value.processedBitmap
+
         _uiState.update {
             it.copy(
                 originalBitmap = bitmap,
@@ -74,6 +78,10 @@ class MainViewModel @Inject constructor(
                 errorMessage = null
             )
         }
+
+        // 在更新状态后回收旧的bitmap
+        oldOriginal?.recycle()
+        oldProcessed?.recycle()
     }
 
     /**
@@ -109,6 +117,9 @@ class MainViewModel @Inject constructor(
                 .collect { result ->
                     result.fold(
                         onSuccess = { processedBitmap ->
+                            // 释放旧的处理后的bitmap
+                            val oldProcessed = _uiState.value.processedBitmap
+
                             _uiState.update {
                                 it.copy(
                                     processedBitmap = processedBitmap,
@@ -116,6 +127,9 @@ class MainViewModel @Inject constructor(
                                     errorMessage = null
                                 )
                             }
+
+                            // 回收旧bitmap
+                            oldProcessed?.recycle()
                         },
                         onFailure = { e ->
                             Timber.e(e, "Failed to apply style")
@@ -212,8 +226,27 @@ class MainViewModel @Inject constructor(
      * 重置所有状态
      */
     fun reset() {
+        // 释放所有bitmap
+        val oldOriginal = _uiState.value.originalBitmap
+        val oldProcessed = _uiState.value.processedBitmap
+
         _uiState.update {
             MainUiState(styles = it.styles)
         }
+
+        // 回收bitmap
+        oldOriginal?.recycle()
+        oldProcessed?.recycle()
+    }
+
+    /**
+     * 清理资源
+     */
+    override fun onCleared() {
+        super.onCleared()
+        // ViewModel被销毁时释放所有bitmap
+        _uiState.value.originalBitmap?.recycle()
+        _uiState.value.processedBitmap?.recycle()
+        Timber.d("MainViewModel cleared, bitmaps recycled")
     }
 }

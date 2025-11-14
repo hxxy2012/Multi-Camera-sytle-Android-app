@@ -69,49 +69,84 @@ class ImageRepository @Inject constructor(
         val resolver = context.contentResolver
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
 
-        uri?.let {
-            resolver.openOutputStream(it)?.use { outputStream ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, outputStream)
-                Timber.d("Image saved successfully via MediaStore: $uri")
+        return uri?.let { imageUri ->
+            try {
+                resolver.openOutputStream(imageUri)?.use { outputStream ->
+                    val success = bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, outputStream)
+                    if (success) {
+                        Timber.d("Image saved successfully via MediaStore: $imageUri")
+                        imageUri
+                    } else {
+                        Timber.e("Failed to compress bitmap")
+                        // 删除失败的条目
+                        resolver.delete(imageUri, null, null)
+                        null
+                    }
+                } ?: run {
+                    Timber.e("Failed to open output stream")
+                    // 删除失败的条目
+                    resolver.delete(imageUri, null, null)
+                    null
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error writing image to MediaStore")
+                // 删除失败的条目
+                resolver.delete(imageUri, null, null)
+                null
             }
         }
-
-        return uri
     }
 
     /**
      * 使用传统文件系统保存图片（Android 9及以下）
      */
     private fun saveImageViaFileSystem(bitmap: Bitmap, fileName: String): Uri? {
-        val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-        val appDir = File(picturesDir, DIRECTORY)
+        return try {
+            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            val appDir = File(picturesDir, DIRECTORY)
 
-        if (!appDir.exists()) {
-            appDir.mkdirs()
+            if (!appDir.exists()) {
+                val created = appDir.mkdirs()
+                if (!created && !appDir.exists()) {
+                    Timber.e("Failed to create directory: ${appDir.absolutePath}")
+                    return null
+                }
+            }
+
+            val file = File(appDir, fileName)
+            FileOutputStream(file).use { outputStream ->
+                val success = bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, outputStream)
+                if (!success) {
+                    Timber.e("Failed to compress bitmap to file")
+                    file.delete() // 删除失败的文件
+                    return null
+                }
+            }
+
+            // 通知系统媒体库更新
+            val uri = Uri.fromFile(file)
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DATA, file.absolutePath)
+            }
+            context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+
+            Timber.d("Image saved successfully via file system: $uri")
+            uri
+        } catch (e: Exception) {
+            Timber.e(e, "Error saving image via file system")
+            null
         }
-
-        val file = File(appDir, fileName)
-        FileOutputStream(file).use { outputStream ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, outputStream)
-        }
-
-        // 通知系统媒体库更新
-        val uri = Uri.fromFile(file)
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DATA, file.absolutePath)
-        }
-        context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-
-        Timber.d("Image saved successfully via file system: $uri")
-        return uri
     }
 
     /**
      * 生成文件名
+     * 移除特殊字符以确保文件系统兼容性
      */
     private fun generateFileName(styleName: String): String {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        return "IMG_${styleName}_${timestamp}.jpg"
+        // 移除文件名中的特殊字符，只保留字母、数字、中文和下划线
+        val sanitizedStyleName = styleName.replace(Regex("[^\\w\\u4e00-\\u9fa5]"), "_")
+        return "IMG_${sanitizedStyleName}_${timestamp}.jpg"
     }
 
     /**
